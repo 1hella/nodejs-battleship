@@ -12,13 +12,90 @@ document.addEventListener('DOMContentLoaded', () => {
     const rotateButton = document.querySelector('#rotate');
     const turnDisplay = document.querySelector('#whose-turn');
     const infoDisplay = document.querySelector('#info');
+    const singlePlayerButton = document.querySelector('#single-player-button');
+    const multiplayerButton = document.querySelector('#multiplayer-button');
     const userSquares = [];
     const computerSquares = [];
     let isHorizontal = true;
     let isGameOver = false;
     let currentPlayer = 'user';
-
     const width = 10;
+  
+    let gameMode = '';
+    let playerNum = 0;
+    let ready = false;
+    let enemyReady = false;
+    let allShipsPlaced = false;
+    let shotFired = -1;
+
+    // Select Player Mode
+    singlePlayerButton.addEventListener('click', startSinglePlayer);
+    multiplayerButton.addEventListener('click', startMultiplayer);
+
+    function startMultiplayer() {
+        gameMode = 'multiPlayer';
+
+        const socket = io();
+
+        // get player number
+        socket.on('player-number', num => {
+            if (num === -1) {
+                infoDisplay.innerHTML = "Sorry, the server is full."
+            } else {
+                playerNum = parseInt(num);
+                if (playerNum === 1) currentPLayer = 'enemy';
+
+                console.log(playerNum)
+            }
+
+            // Get other player status
+            socket.emit('check-players');
+        });
+
+        // Another player has connected or disconnected
+        socket.on('player-connection', num => {
+            console.log(`PLayer number ${num} has connected or disconnected`);
+            playerConnectedOrDisconnected(num);
+        });
+
+        // On enemy ready
+        socket.on('enemy-ready', num => {
+            enemyReady = true;
+            playerReady(num);
+            if (ready) {
+                playGameMulti(socket);
+            }
+        });
+
+        socket.on('check-players', players => {
+            players.forEach((player, i) => {
+                if (player.connected) playerConnectedOrDisconnected(i);
+                if (player.ready) {
+                    playerReady(i);
+                    if (i !== playerNum) enemyReady = true;
+                }
+            })
+        })
+
+        startButton.addEventListener('click', () => {
+            if (allShipsPlaced) playGameMulti(socket)
+            else infoDisplay.innerHTML = 'Please place all ships';
+        });
+
+        function playerConnectedOrDisconnected(num) {
+            let player = `.p${parseInt(num) + 1}`;
+            document.querySelector(`${player} .connected span`).classList.toggle('green');
+            if (parseInt(num) === playerNum) {
+                document.querySelector(player).style.fontWeight = 'bold';
+            }
+        }
+    }
+
+    function startSinglePlayer() {
+        gameMode = 'singlePlayer'
+        shipArray.forEach(ship => generate(ship));
+        startButton.addEventListener('click', playGameSingle);
+    }
 
     function createBoard(grid, squares, width) {
         for (let i = 0; i < width * width; i++) {
@@ -84,8 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isTaken && !isAtRightEdge && !isAtLeftEdge) current.forEach(index => computerSquares[randomStart + index].classList.add('taken', ship.name));
         else generate(ship);
     }
-
-    shipArray.forEach(ship => generate(ship));
 
     function rotate() {
         destroyer.classList.toggle('destroyer-container-vertical');
@@ -169,14 +244,41 @@ document.addEventListener('DOMContentLoaded', () => {
         } else return;
 
         displayGrid.removeChild(draggedShip);
+        if (!displayGrid.querySelector('.ship')) {
+            allShipsPlaced = true;
+        }
     }
 
     function dragEnd() {
         console.log('dragend');
     }
 
-    // game logic
-    function playGame() {
+    // game logic for multiplayer
+    function playGameMulti(socket) {
+        if (isGameOver) return;
+        if (!ready) {
+            socket.emit('player-ready');
+            ready = true;
+            playerReady(playerNum);
+        }
+
+        if (enemyReady) {
+            if (currentPlayer === 'user') {
+                turnDisplay.innerHTML = 'Your Turn';
+            }
+            if (currentPlayer === 'enemy') {
+                turnDisplay.innerHTML = 'Enemy\`s Turn';
+            }
+        }
+    }
+
+    function playerReady(num) {
+        let player = `.p${parseInt(num) + 1}`;
+        document.querySelector(`${player} .ready span`).classList.toggle('green');
+    }
+
+    // game logic for single player
+    function playGameSingle() {
         if (isGameOver) return;
         if (currentPlayer === 'user') {
             turnDisplay.innerHTML = 'Your Turn';
@@ -189,8 +291,6 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(computerTurn, 1000);
         }
     }
-
-    startButton.addEventListener('click', playGame);
 
     let destroyerCount = 0;
     let submarineCount = 0;
@@ -216,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
         checkForWins()
         currentPlayer = 'computer';
         console.log(destroyerCount);
-        playGame();
+        playGameSingle();
     }
 
     let cpuDestroyerCount = 0;
@@ -299,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function gameOver() {
             isGameOver = true;
-            startButton.removeEventListener('click', playGame);
+            startButton.removeEventListener('click', playGameSingle);
         }
     }
 });
