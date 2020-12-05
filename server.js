@@ -60,5 +60,25 @@ io.on('connection', socket => {
         }
 
         socket.emit('check-players', players);
+    });
+
+    // On fire received
+    socket.on('fire', id => {
+        console.log('shot fired from ' + playerIndex + ' ' + id);
+        socket.broadcast.emit('fire', id);
+    });
+
+    // On fire reply
+    socket.on('fire-reply', square => {
+        console.log(square);
+
+        // Forwared the reply to the other player
+        socket.broadcast.emit('fire-reply', square);
     })
+
+    setTimeout(() => {
+        connections[playerIndex] = null;
+        socket.emit('timeout');
+        socket.disconnect();
+    }, 600000); // 10 minute time limit
 });
