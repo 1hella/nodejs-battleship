@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 infoDisplay.innerHTML = "Sorry, the server is full."
             } else {
                 playerNum = parseInt(num);
-                if (playerNum === 1) currentPLayer = 'enemy';
+                if (playerNum === 1) currentPlayer = 'enemy';
 
                 console.log(playerNum)
             }
@@ -314,10 +314,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentPlayer === 'user') {
             turnDisplay.innerHTML = 'Your Turn';
             computerSquares.forEach(square => square.addEventListener('click', e => {
+                shotFired = square.dataset.id;
                 revealSquare(square.classList);
             }))
-        } else if (currentPlayer === 'computer') {
-            turnDisplay.innerHTML = 'Computer\'s Turn';
+        } else if (currentPlayer === 'enemy') {
+            turnDisplay.innerHTML = `Enemy's Turn`;
             setTimeout(enemyTurn, 1000);
         }
     }
@@ -366,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
           checkForWins()
         } else if (gameMode === 'singlePlayer') enemyTurn()
         currentPlayer = 'user'
-        turnDisplay.innerHTML = 'Your Go'
+        turnDisplay.innerHTML = 'Your Turn'
       }
 
     function checkForWins() {
